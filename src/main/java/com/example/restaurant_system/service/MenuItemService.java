@@ -14,12 +14,12 @@ public class MenuItemService {
     @Autowired
     private MenuItemRepository menuItemRepository;
 
-    // Create new menu item
+    // Create a new menu item
     public MenuItem addMenuItem(MenuItem menuItem) {
         return menuItemRepository.save(menuItem);
     }
 
-    // Update menu item
+    // Update an existing menu item
     public MenuItem updateMenuItem(Long id, MenuItem menuItemDetails) {
         MenuItem menuItem = menuItemRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("MenuItem not found with id " + id));
@@ -33,7 +33,7 @@ public class MenuItemService {
         return menuItemRepository.save(menuItem);
     }
 
-    // Delete menu item
+    // Delete a menu item
     public void deleteMenuItem(Long id) {
         MenuItem menuItem = menuItemRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("MenuItem not found with id " + id));
@@ -45,7 +45,7 @@ public class MenuItemService {
         return menuItemRepository.findAll();
     }
 
-    // Get single menu item
+    // Get a single menu item by id
     public MenuItem getMenuItemById(Long id) {
         return menuItemRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("MenuItem not found with id " + id));

@@ -1,5 +1,8 @@
 package com.example.restaurant_system.entity;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -26,6 +29,10 @@ public class MenuItem {
     private Double price;
 
     private boolean available = true;
+    
+    @OneToMany(mappedBy = "menuItem", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Review> reviews = new ArrayList<>();
+    
 
     public MenuItem() {}
 

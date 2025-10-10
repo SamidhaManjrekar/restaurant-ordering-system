@@ -1,168 +1,144 @@
 package com.example.restaurant_system.service;
 
-import com.example.restaurant_system.dto.OrderDTO.*;
+import com.example.restaurant_system.dto.*;
+import com.example.restaurant_system.dto.OrderDTO.OrderItemRequest;
+import com.example.restaurant_system.dto.OrderDTO.PlaceOrderRequest;
 import com.example.restaurant_system.entity.*;
-import com.example.restaurant_system.exception.*;
-import com.example.restaurant_system.repository.*;
-
+import com.example.restaurant_system.exception.NotFoundException;
+import com.example.restaurant_system.repository.MenuItemRepository;
+import com.example.restaurant_system.repository.OrderRepository;
+import com.example.restaurant_system.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.*;
+import java.util.List;
 import java.util.stream.Collectors;
 
-public interface OrderService {
-    OrderResponse placeOrder(PlaceOrderRequest request);
-    OrderResponse cancelOrder(Long orderId, Long userId);
-    List<OrderResponse> getOrdersByCustomer(Long userId);
-    List<OrderResponse> getActiveOrders();
-    OrderResponse updateOrderStatus(Long orderId, UpdateStatusRequest request);
+@Service
+public class OrderService {
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private MenuItemRepository menuItemRepository;
+
+    // Place order (Customer)
+    @Transactional
+   public OrderDTO placeOrder(PlaceOrderRequest request) {
+    User customer = userRepository.findById(request.getCustomerId())
+            .orElseThrow(() -> new NotFoundException("Customer not found"));
+
+    Order order = new Order();
+    order.setCustomer(customer);
+    order.setDeliveryAddress(request.getDeliveryAddress());
+    order.setSpecialInstructions(request.getSpecialInstructions());
+
+    Double totalAmount = 0.0;
+
+    // Process each order item
+    for (OrderItemRequest itemRequest : request.getItems()) {
+        MenuItem menuItem = menuItemRepository.findById(itemRequest.getMenuItemId())
+                .orElseThrow(() -> new NotFoundException("Menu item not found with id: " + itemRequest.getMenuItemId()));
+
+        OrderItem orderItem = new OrderItem();
+        orderItem.setMenuItem(menuItem);
+        orderItem.setQuantity(itemRequest.getQuantity());
+        orderItem.setPrice(menuItem.getPrice()); // Store current price
+
+        totalAmount += menuItem.getPrice() * itemRequest.getQuantity();
+        order.addOrderItem(orderItem);
+    }
+
+    order.setTotalAmount(totalAmount);
+    Order savedOrder = orderRepository.save(order);
+
+    return convertToDTO(savedOrder);
 }
 
-@Service
-class OrderServiceImpl implements OrderService {
-
-    private final OrderRepository orderRepo;
-    private final MenuItemRepository menuRepo;
-    private final UserRepository userRepo;
-
-    public OrderServiceImpl(OrderRepository orderRepo, MenuItemRepository menuRepo, UserRepository userRepo) {
-        this.orderRepo = orderRepo;
-        this.menuRepo = menuRepo;
-        this.userRepo = userRepo;
-    }
-
-    @Override
+    // Cancel order (Customer)
     @Transactional
-    public OrderResponse placeOrder(PlaceOrderRequest req) {
-        User customer = userRepo.findById(req.getCustomerId())
-                .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+    public OrderDTO cancelOrder(Long orderId, Long customerId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new NotFoundException("Order not found"));
 
-        BigDecimal total = BigDecimal.ZERO;
-        List<OrderItem> orderItems = new ArrayList<>();
-
-        for (OrderItemRequest itReq : req.getItems()) {
-            MenuItem menu = menuRepo.findById(itReq.getItemId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Menu item not found: " + itReq.getItemId()));
-
-            if (!menu.isAvailable()) {
-                throw new InvalidOrderOperationException("Menu item not available: " + menu.getName());
-            }
-
-            BigDecimal itemTotal = BigDecimal.valueOf(menu.getPrice()) // if price is double
-            .multiply(BigDecimal.valueOf(itReq.getQuantity()));
-
-            total = total.add(itemTotal);
-
-            OrderItem oi = new OrderItem();
-            oi.setMenuItem(menu);
-            oi.setQuantity(itReq.getQuantity());
-            oi.setPrice(itemTotal);
-
-            orderItems.add(oi);
+        if (!order.getCustomer().getUserId().equals(customerId)) {
+            throw new RuntimeException("You can only cancel your own orders");
         }
 
-        Order order = new Order();
-        order.setCustomer(customer);
-        order.setOrderDate(LocalDateTime.now());
-        order.setStatus(OrderStatus.PENDING);
-        order.setTotalAmount(total);
+        // Only allow cancellation for pending orders
+        if (order.getStatus() != OrderStatus.PENDING) {
+            throw new RuntimeException("Order cannot be cancelled in its current status");
+        }
 
-        orderItems.forEach(oi -> oi.setOrder(order));
-        order.setOrderItems(orderItems);
-        Order savedOrder = orderRepo.save(order);
+        order.setStatus(OrderStatus.CANCELLED);
+        Order updatedOrder = orderRepository.save(order);
 
-        return mapToResponse(savedOrder);
+        return convertToDTO(updatedOrder);
     }
 
-    @Override
-    @Transactional
-    public OrderResponse cancelOrder(Long orderId, Long userId) {
-        Order order = orderRepo.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+    // View order history (Customer)
+    public List<OrderDTO> getOrderHistory(Long customerId) {
+        User customer = userRepository.findById(customerId)
+                .orElseThrow(() -> new NotFoundException("Customer not found"));
 
-        if (!order.getCustomer().getUserId().equals(userId)) {
-            throw new InvalidOrderOperationException("You can cancel only your own orders");
-        }
-
-        if (order.getStatus() == OrderStatus.PENDING || order.getStatus() == OrderStatus.ACCEPTED) {
-            order.setStatus(OrderStatus.CANCELLED);
-            orderRepo.save(order);
-            return mapToResponse(order);
-        } else {
-            throw new InvalidOrderOperationException("Cannot cancel order in status: " + order.getStatus());
-        }
-    }
-
-    @Override
-    public List<OrderResponse> getOrdersByCustomer(Long userId) {
-        return orderRepo.findByCustomerUserIdOrderByOrderDateDesc(userId)
+        return orderRepository.findByCustomerOrderByOrderDateDesc(customer)
                 .stream()
-                .map(this::mapToResponse)
+                .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
 
-    @Override
-    public List<OrderResponse> getActiveOrders() {
-        List<OrderStatus> active = Arrays.asList(
-                OrderStatus.PENDING, OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY
+    // View all active orders (Staff)
+    public List<OrderDTO> getAllActiveOrders() {
+        List<OrderStatus> activeStatuses = List.of(
+                OrderStatus.PENDING,
+                OrderStatus.CONFIRMED,
+                OrderStatus.PREPARING,
+                OrderStatus.OUT_FOR_DELIVERY
         );
-        return orderRepo.findByStatusIn(active)
+
+        return orderRepository.findByStatusInOrderByOrderDateDesc(activeStatuses)
                 .stream()
-                .map(this::mapToResponse)
+                .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
 
-    @Override
+    // Update order status (Staff)
     @Transactional
-    public OrderResponse updateOrderStatus(Long orderId, UpdateStatusRequest request) {
-        Order order = orderRepo.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
-
-        OrderStatus newStatus;
-        try {
-            newStatus = OrderStatus.valueOf(request.getStatus());
-        } catch (IllegalArgumentException e) {
-            throw new InvalidOrderOperationException("Invalid status");
-        }
-
-        if (!isValidTransition(order.getStatus(), newStatus)) {
-            throw new InvalidOrderOperationException("Invalid status transition: " + order.getStatus() + " -> " + newStatus);
-        }
+    public OrderDTO updateOrderStatus(Long orderId, OrderStatus newStatus) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new NotFoundException("Order not found"));
 
         order.setStatus(newStatus);
-        orderRepo.save(order);
+        Order updatedOrder = orderRepository.save(order);
 
-        return mapToResponse(order);
+        return convertToDTO(updatedOrder);
     }
 
-    private boolean isValidTransition(OrderStatus current, OrderStatus next) {
-        if (current == OrderStatus.PENDING && (next == OrderStatus.ACCEPTED || next == OrderStatus.CANCELLED)) return true;
-        if (current == OrderStatus.ACCEPTED && (next == OrderStatus.PREPARING || next == OrderStatus.CANCELLED)) return true;
-        if (current == OrderStatus.PREPARING && next == OrderStatus.READY) return true;
-        if (current == OrderStatus.READY && next == OrderStatus.DELIVERED) return true;
-        return false;
-    }
+    // Helper method to convert Entity → DTO
+    private OrderDTO convertToDTO(Order order) {
+        List<OrderDTO.OrderItemDTO> itemDTOs = order.getOrderItems().stream()
+                .map(item -> new OrderDTO.OrderItemDTO(
+                        item.getMenuItem().getId(),
+                        item.getMenuItem().getName(),
+                        item.getQuantity(),
+                        item.getPrice()
+                ))
+                .collect(Collectors.toList());
 
-    private OrderResponse mapToResponse(Order order) {
-        OrderResponse resp = new OrderResponse();
-        resp.setOrderId(order.getOrderId());
-        resp.setStatus(order.getStatus().name());
-        resp.setOrderDate(order.getOrderDate());
-        resp.setTotalAmount(order.getTotalAmount());
-
-        List<OrderItemResponse> items = order.getOrderItems().stream().map(oi -> {
-            OrderItemResponse ir = new OrderItemResponse();
-            ir.setItemId(oi.getMenuItem().getId());
-            ir.setName(oi.getMenuItem().getName());
-            ir.setQuantity(oi.getQuantity());
-            ir.setPrice(oi.getPrice());
-            return ir;
-        }).collect(Collectors.toList());
-
-        resp.setItems(items);
-        return resp;
+        return new OrderDTO(
+                order.getOrderId(),
+                order.getOrderDate(),
+                order.getTotalAmount(),
+                order.getStatus().name(),
+                order.getDeliveryAddress(),
+                order.getSpecialInstructions(),
+                order.getCustomer().getName(),
+                itemDTOs
+        );
     }
 }

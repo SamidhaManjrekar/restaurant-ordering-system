@@ -1,10 +1,8 @@
 package com.example.restaurant_system.entity;
 
-
 import jakarta.persistence.*;
-
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -17,103 +15,57 @@ public class Order {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id", nullable = false)
-    private User customer; // assume you have a User entity
+    private User customer;
 
     private LocalDateTime orderDate;
+    private Double totalAmount;
 
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
 
-    private BigDecimal totalAmount;
-
-    @Version
-    private Integer version; // optimistic locking
+    private String deliveryAddress;
+    private String specialInstructions;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<OrderItem> orderItems;
+    private List<OrderItem> orderItems = new ArrayList<>();
 
-    // ---- Constructors ----
-    public Order() {
+    @PrePersist
+    public void onCreate() {
+        this.orderDate = LocalDateTime.now();
+        if (this.status == null) {
+            this.status = OrderStatus.PENDING;
+        }
     }
 
-    public Order(Long orderId, User customer, LocalDateTime orderDate, OrderStatus status,
-                 BigDecimal totalAmount, Integer version, List<OrderItem> orderItems) {
-        this.orderId = orderId;
-        this.customer = customer;
-        this.orderDate = orderDate;
-        this.status = status;
-        this.totalAmount = totalAmount;
-        this.version = version;
-        this.orderItems = orderItems;
+    // Helper method to add order items
+    public void addOrderItem(OrderItem item) {
+        orderItems.add(item);
+        item.setOrder(this);
     }
 
-    // ---- Getters and Setters ----
-    public Long getOrderId() {
-        return orderId;
-    }
+    // Getters and Setters
+    public Long getOrderId() { return orderId; }
+    public void setOrderId(Long orderId) { this.orderId = orderId; }
 
-    public void setOrderId(Long orderId) {
-        this.orderId = orderId;
-    }
+    public User getCustomer() { return customer; }
+    public void setCustomer(User customer) { this.customer = customer; }
 
-    public User getCustomer() {
-        return customer;
-    }
+    public LocalDateTime getOrderDate() { return orderDate; }
+    public void setOrderDate(LocalDateTime orderDate) { this.orderDate = orderDate; }
 
-    public void setCustomer(User customer) {
-        this.customer = customer;
-    }
+    public Double getTotalAmount() { return totalAmount; }
+    public void setTotalAmount(Double totalAmount) { this.totalAmount = totalAmount; }
 
-    public LocalDateTime getOrderDate() {
-        return orderDate;
-    }
+    public OrderStatus getStatus() { return status; }
+    public void setStatus(OrderStatus status) { this.status = status; }
 
-    public void setOrderDate(LocalDateTime orderDate) {
-        this.orderDate = orderDate;
-    }
+    public String getDeliveryAddress() { return deliveryAddress; }
+    public void setDeliveryAddress(String deliveryAddress) { this.deliveryAddress = deliveryAddress; }
 
-    public OrderStatus getStatus() {
-        return status;
-    }
+    public String getSpecialInstructions() { return specialInstructions; }
+    public void setSpecialInstructions(String specialInstructions) { this.specialInstructions = specialInstructions; }
 
-    public void setStatus(OrderStatus status) {
-        this.status = status;
-    }
-
-    public BigDecimal getTotalAmount() {
-        return totalAmount;
-    }
-
-    public void setTotalAmount(BigDecimal totalAmount) {
-        this.totalAmount = totalAmount;
-    }
-
-    public Integer getVersion() {
-        return version;
-    }
-
-    public void setVersion(Integer version) {
-        this.version = version;
-    }
-
-    public List<OrderItem> getOrderItems() {
-        return orderItems;
-    }
-
-    public void setOrderItems(List<OrderItem> orderItems) {
-        this.orderItems = orderItems;
-    }
-
-    // ---- toString ----
-    @Override
-    public String toString() {
-        return "Order{" +
-                "orderId=" + orderId +
-                ", customer=" + (customer != null ? customer.getUserId() : null) +
-                ", orderDate=" + orderDate +
-                ", status=" + status +
-                ", totalAmount=" + totalAmount +
-                ", version=" + version +
-                '}';
-    }
+    public List<OrderItem> getOrderItems() { return orderItems; }
+    public void setOrderItems(List<OrderItem> orderItems) { this.orderItems = orderItems; }
 }
+

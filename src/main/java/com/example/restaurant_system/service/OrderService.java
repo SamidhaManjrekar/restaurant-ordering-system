@@ -15,8 +15,8 @@ import java.util.stream.Collectors;
 
 public interface OrderService {
     OrderResponse placeOrder(PlaceOrderRequest request);
-    OrderResponse cancelOrder(Long orderId, Long customerId);
-    List<OrderResponse> getOrdersByCustomer(Long customerId);
+    OrderResponse cancelOrder(Long orderId, Long userId);
+    List<OrderResponse> getOrdersByCustomer(Long userId);
     List<OrderResponse> getActiveOrders();
     OrderResponse updateOrderStatus(Long orderId, UpdateStatusRequest request);
 }
@@ -79,11 +79,11 @@ class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public OrderResponse cancelOrder(Long orderId, Long customerId) {
+    public OrderResponse cancelOrder(Long orderId, Long userId) {
         Order order = orderRepo.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
-        if (!order.getCustomer().getUserId().equals(customerId)) {
+        if (!order.getCustomer().getUserId().equals(userId)) {
             throw new InvalidOrderOperationException("You can cancel only your own orders");
         }
 
@@ -97,8 +97,8 @@ class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public List<OrderResponse> getOrdersByCustomer(Long customerId) {
-        return orderRepo.findByCustomerUserIdOrderByOrderDateDesc(customerId)
+    public List<OrderResponse> getOrdersByCustomer(Long userId) {
+        return orderRepo.findByCustomerUserIdOrderByOrderDateDesc(userId)
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());

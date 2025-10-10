@@ -8,11 +8,11 @@ public class OrderDTO {
 
     // ---------------- PlaceOrderRequest ----------------
     public static class PlaceOrderRequest {
-        private Long customerId;
+        private Long userId;
         private List<OrderItemRequest> items;
 
-        public Long getCustomerId() { return customerId; }
-        public void setCustomerId(Long customerId) { this.customerId = customerId; }
+        public Long getCustomerId() { return userId; }
+        public void setCustomerId(Long userId) { this.userId = userId; }
 
         public List<OrderItemRequest> getItems() { return items; }
         public void setItems(List<OrderItemRequest> items) { this.items = items; }

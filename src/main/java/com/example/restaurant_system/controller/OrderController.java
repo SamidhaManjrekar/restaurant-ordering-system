@@ -25,15 +25,15 @@ public class OrderController {
 
     // 2. Cancel order (Customer)
     @PostMapping("/{orderId}/cancel")
-    public ResponseEntity<OrderResponse> cancelOrder(@PathVariable Long orderId, @RequestParam Long customerId) {
-        OrderResponse res = orderService.cancelOrder(orderId, customerId);
+    public ResponseEntity<OrderResponse> cancelOrder(@PathVariable Long orderId, @RequestParam Long userId) {
+        OrderResponse res = orderService.cancelOrder(orderId, userId);
         return ResponseEntity.ok(res);
     }
 
     // 3. View order history (Customer)
-    @GetMapping("/customer/{customerId}")
-    public ResponseEntity<List<OrderResponse>> getMyOrders(@PathVariable Long customerId) {
-        return ResponseEntity.ok(orderService.getOrdersByCustomer(customerId));
+    @GetMapping("/customer/{userId}")
+    public ResponseEntity<List<OrderResponse>> getMyOrders(@PathVariable Long userId) {
+        return ResponseEntity.ok(orderService.getOrdersByCustomer(userId));
     }
 
     // 4. View all active orders (Staff)

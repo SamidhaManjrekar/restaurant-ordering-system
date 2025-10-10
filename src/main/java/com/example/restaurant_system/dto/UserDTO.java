@@ -6,6 +6,8 @@ public class UserDTO {
     private String email;
     private String role;
 
+    public UserDTO() {}
+
     public UserDTO(Long userId, String name, String email, String role) {
         this.userId = userId;
         this.name = name;

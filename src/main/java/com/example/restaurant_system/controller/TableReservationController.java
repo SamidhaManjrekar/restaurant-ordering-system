@@ -1,7 +1,12 @@
 package com.example.restaurant_system.controller;
 
+import com.example.restaurant_system.dto.TableReservationDTO;
 import com.example.restaurant_system.entity.TableReservation;
 import com.example.restaurant_system.service.TableReservationService;
+
+import jakarta.validation.Valid;
+
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,10 +21,24 @@ public class TableReservationController {
         this.reservationService = reservationService;
     }
 
+//    @PostMapping
+//    public TableReservation createReservation(@RequestBody TableReservation reservation) {
+//        return reservationService.createReservation(reservation);
+//    }
+    
     @PostMapping
-    public TableReservation createReservation(@RequestBody TableReservation reservation) {
-        return reservationService.createReservation(reservation);
+    public ResponseEntity<?> createReservation(@Valid @RequestBody TableReservationDTO request) {
+        TableReservation reservation = new TableReservation();
+        reservation.setCustomerName(request.getCustomerName());
+        reservation.setPhoneNumber(request.getPhoneNumber());
+        reservation.setTableNumber(request.getTableNumber());
+        reservation.setNumberOfGuests(request.getNumberOfGuests());
+        reservation.setReservationTime(request.getReservationTime());
+
+        TableReservation saved = reservationService.createReservation(reservation);
+        return ResponseEntity.ok(saved);
     }
+
 
     @GetMapping("/{id}")
     public TableReservation getReservation(@PathVariable Long id) {

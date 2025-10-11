@@ -1,10 +1,5 @@
 package com.example.restaurant_system.entity;
 
 public enum OrderStatus {
-    PENDING,
-    ACCEPTED,
-    PREPARING,
-    READY,
-    DELIVERED,
-    CANCELLED
+    PENDING, CONFIRMED, PREPARING, OUT_FOR_DELIVERY, DELIVERED, CANCELLED
 }
